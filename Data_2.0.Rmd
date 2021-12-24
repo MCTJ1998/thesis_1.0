@@ -1,0 +1,408 @@
+---
+title: "Data_2.0"
+author: "Cande Torres"
+date: "12/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(broom)
+library(readxl)
+library(readr)
+library(janitor)
+library(lubridate)
+library(stringr)
+library(haven)
+```
+
+```{r}
+school_q_data<- read_sav("SCH/CY07_MSU_SCH_QQQ.sav")
+```
+
+```{r}
+school_q_data <- school_q_data %>% 
+  filter(SC013Q01TA==1)
+```
+
+```{r}
+school_data <- school_q_data %>% 
+  select(CNTRYID, CNT, CNTSCHID, Region, SC013Q01TA, SCHSIZE,CLSIZE, RATCMP1, RATCMP2, VER_DAT,                                                                           SC155Q01HA, SC155Q02HA, SC155Q03HA, SC155Q04HA, SC155Q05HA, SC155Q06HA, SC155Q07HA, SC155Q08HA, SC155Q09HA, SC155Q10HA, SC155Q11HA,                                 SC156Q01HA, SC156Q02HA, SC156Q03HA, SC156Q04HA, SC156Q05HA, SC156Q06HA, SC156Q07HA, SC156Q08HA
+         )
+```
+
+# Coding the Education Availability Index 
+
+## Step 1: Recode all NAs for 0
+
+```{r}
+school_data$RATCMP1[is.na(school_data$RATCMP1)]<-0
+school_data$RATCMP2[is.na(school_data$RATCMP2)]<-0
+school_data$SC155Q01HA[is.na(school_data$SC155Q01HA)]<-0
+school_data$SC155Q02HA[is.na(school_data$SC155Q02HA)]<-0
+school_data$SC155Q03HA[is.na(school_data$SC155Q03HA)]<-0
+school_data$SC155Q04HA[is.na(school_data$SC155Q04HA)]<-0
+school_data$SC155Q05HA[is.na(school_data$SC155Q05HA)]<-0
+school_data$SC155Q06HA[is.na(school_data$SC155Q06HA)]<-0
+school_data$SC155Q07HA[is.na(school_data$SC155Q07HA)]<-0
+school_data$SC155Q08HA[is.na(school_data$SC155Q08HA)]<-0
+school_data$SC155Q09HA[is.na(school_data$SC155Q09HA)]<-0
+school_data$SC155Q10HA[is.na(school_data$SC155Q10HA)]<-0
+school_data$SC155Q11HA[is.na(school_data$SC155Q11HA)]<-0
+school_data$SC156Q01HA[is.na(school_data$SC156Q01HA)]<-0
+school_data$SC156Q02HA[is.na(school_data$SC156Q02HA)]<-0
+school_data$SC156Q03HA[is.na(school_data$SC156Q03HA)]<-0
+school_data$SC156Q04HA[is.na(school_data$SC156Q04HA)]<-0
+school_data$SC156Q05HA[is.na(school_data$SC156Q05HA)]<-0
+school_data$SC156Q06HA[is.na(school_data$SC156Q06HA)]<-0
+school_data$SC156Q07HA[is.na(school_data$SC156Q07HA)]<-0
+school_data$SC156Q08HA[is.na(school_data$SC156Q08HA)]<-0
+```
+
+## Recode variables as numeric (currently "unknown")
+
+```{r}
+school_data$SCHSIZE<-as.numeric(school_data$SCHSIZE)
+school_data$CLSIZE<-as.numeric(school_data$CLSIZE)
+school_data$RATCMP1<-as.numeric(school_data$RATCMP1)
+school_data$RATCMP2<-as.numeric(school_data$RATCMP2)
+school_data$SC155Q01HA<-as.numeric(school_data$SC155Q01HA)
+school_data$SC155Q02HA<-as.numeric(school_data$SC155Q02HA)
+school_data$SC155Q03HA<-as.numeric(school_data$SC155Q03HA)
+school_data$SC155Q04HA<-as.numeric(school_data$SC155Q04HA)
+school_data$SC155Q05HA<-as.numeric(school_data$SC155Q05HA)
+school_data$SC155Q06HA<-as.numeric(school_data$SC155Q06HA)
+school_data$SC155Q07HA<-as.numeric(school_data$SC155Q07HA)
+school_data$SC155Q08HA<-as.numeric(school_data$SC155Q08HA)
+school_data$SC155Q09HA<-as.numeric(school_data$SC155Q09HA)
+school_data$SC155Q10HA<-as.numeric(school_data$SC155Q10HA)
+school_data$SC155Q11HA<-as.numeric(school_data$SC155Q11HA)
+school_data$SC156Q01HA<-as.numeric(school_data$SC156Q01HA)
+school_data$SC156Q02HA<-as.numeric(school_data$SC156Q02HA)
+school_data$SC156Q03HA<-as.numeric(school_data$SC156Q03HA)
+school_data$SC156Q04HA<-as.numeric(school_data$SC156Q04HA)
+school_data$SC156Q05HA<-as.numeric(school_data$SC156Q05HA)
+school_data$SC156Q06HA<-as.numeric(school_data$SC156Q06HA)
+school_data$SC156Q07HA<-as.numeric(school_data$SC156Q07HA)
+school_data$SC156Q08HA<-as.numeric(school_data$SC156Q08HA)
+```
+
+
+
+## Step 2: Recode variable series SC155
+
+```{r}
+school_data$SC155Q01HA[school_data$SC155Q01HA==2]<- -1
+school_data$SC155Q01HA[school_data$SC155Q01HA==1]<- -2
+school_data$SC155Q01HA[school_data$SC155Q01HA==3]<-1
+school_data$SC155Q01HA[school_data$SC155Q01HA==4]<-2
+```
+```{r}
+school_data$SC155Q02HA[school_data$SC155Q02HA==2]<- -1
+school_data$SC155Q02HA[school_data$SC155Q02HA==1]<- -2
+school_data$SC155Q02HA[school_data$SC155Q02HA==3]<-1
+school_data$SC155Q02HA[school_data$SC155Q02HA==4]<-2
+```
+```{r}
+school_data$SC155Q03HA[school_data$SC155Q03HA==2]<- -1
+school_data$SC155Q03HA[school_data$SC155Q03HA==1]<- -2
+school_data$SC155Q03HA[school_data$SC155Q03HA==3]<-1
+school_data$SC155Q03HA[school_data$SC155Q03HA==4]<-2
+```
+```{r}
+school_data$SC155Q04HA[school_data$SC155Q04HA==2]<- -1
+school_data$SC155Q04HA[school_data$SC155Q04HA==1]<- -2
+school_data$SC155Q04HA[school_data$SC155Q04HA==3]<-1
+school_data$SC155Q04HA[school_data$SC155Q04HA==4]<-2
+```
+```{r}
+school_data$SC155Q05HA[school_data$SC155Q05HA==2]<- -1
+school_data$SC155Q05HA[school_data$SC155Q05HA==1]<- -2
+school_data$SC155Q05HA[school_data$SC155Q05HA==3]<-1
+school_data$SC155Q05HA[school_data$SC155Q05HA==4]<-2
+```
+```{r}
+school_data$SC155Q06HA[school_data$SC155Q06HA==2]<- -1
+school_data$SC155Q06HA[school_data$SC155Q06HA==1]<- -2
+school_data$SC155Q06HA[school_data$SC155Q06HA==3]<-1
+school_data$SC155Q06HA[school_data$SC155Q06HA==4]<-2
+```
+```{r}
+school_data$SC155Q07HA[school_data$SC155Q07HA==2]<- -1
+school_data$SC155Q07HA[school_data$SC155Q07HA==1]<- -2
+school_data$SC155Q07HA[school_data$SC155Q07HA==3]<-1
+school_data$SC155Q07HA[school_data$SC155Q07HA==4]<-2
+```
+```{r}
+school_data$SC155Q08HA[school_data$SC155Q08HA==2]<- -1
+school_data$SC155Q08HA[school_data$SC155Q08HA==1]<- -2
+school_data$SC155Q08HA[school_data$SC155Q08HA==3]<-1
+school_data$SC155Q08HA[school_data$SC155Q08HA==4]<-2
+```
+```{r}
+school_data$SC155Q09HA[school_data$SC155Q09HA==2]<- -1
+school_data$SC155Q09HA[school_data$SC155Q09HA==1]<- -2
+school_data$SC155Q09HA[school_data$SC155Q09HA==3]<-1
+school_data$SC155Q09HA[school_data$SC155Q09HA==4]<-2
+```
+```{r}
+school_data$SC155Q10HA[school_data$SC155Q10HA==2]<- -1
+school_data$SC155Q10HA[school_data$SC155Q10HA==1]<- -2
+school_data$SC155Q10HA[school_data$SC155Q10HA==3]<-1
+school_data$SC155Q10HA[school_data$SC155Q10HA==4]<-2
+```
+```{r}
+school_data$SC155Q11HA[school_data$SC155Q11HA==2]<- -1
+school_data$SC155Q11HA[school_data$SC155Q11HA==1]<- -2
+school_data$SC155Q11HA[school_data$SC155Q11HA==3]<-1
+school_data$SC155Q11HA[school_data$SC155Q11HA==4]<-2
+```
+
+## Recode variables series SC156
+
+```{r}
+school_data$SC156Q01HA[school_data$SC156Q01HA==2]<-0
+school_data$SC156Q02HA[school_data$SC156Q02HA==2]<-0
+school_data$SC156Q03HA[school_data$SC156Q03HA==2]<-0
+school_data$SC156Q04HA[school_data$SC156Q04HA==2]<-0
+school_data$SC156Q05HA[school_data$SC156Q05HA==2]<-0
+school_data$SC156Q06HA[school_data$SC156Q06HA==2]<-0
+school_data$SC156Q07HA[school_data$SC156Q07HA==2]<-0
+school_data$SC156Q08HA[school_data$SC156Q08HA==2]<-0
+```
+
+## Wrangle RAT series 
+
+```{r}
+#get the quartiles
+summary(school_data$RATCMP1)
+```
+```{r}
+school_data<-school_data %>% 
+  mutate(RATCMP1_lvl=cut(RATCMP1, breaks=c(-Inf, 0.12,0.87, Inf), labels=FALSE))
+```
+
+```{r}
+#get the quartiles
+summary(school_data$RATCMP2)
+```
+
+```{r}
+school_data<-school_data %>% 
+  mutate(RATCMP2_lvl=cut(RATCMP2, breaks=c(-Inf, 0.5,0.7, Inf), labels=FALSE))
+```
+
+## Code Index 
+
+```{r}
+school_data<-school_data %>% 
+  mutate(ICT_index=
+           RATCMP1_lvl+RATCMP2_lvl
+         +SC155Q01HA+SC155Q02HA+SC155Q03HA+SC155Q04HA+SC155Q05HA+SC156Q06HA+SC155Q07HA+SC155Q08HA+SC155Q09HA+SC155Q10HA+SC155Q11HA
+         +SC156Q01HA+SC156Q02HA+SC156Q03HA+SC156Q04HA+SC156Q05HA+SC156Q07HA+SC156Q08HA
+         )
+```
+
+## Filter out unnecesary regions 
+
+```{r}
+school_data<-school_data %>% 
+  filter(CNT!= "QMR")
+```
+```{r}
+school_data<-school_data %>% 
+  filter(CNT!= "QRT")
+```
+```{r}
+school_data<-school_data %>% 
+  filter(CNT!= "MAC")
+```
+
+## Recode Country names 
+
+```{r}
+table(school_data$CNT)
+```
+```{r}
+school_data$country<-NA
+school_data$country[school_data$CNT=="ALB"]<-"Albania"
+school_data$country[school_data$CNT=="ARE"]<-"United Arab Emirates"
+school_data$country[school_data$CNT=="ARG"]<-"Argentina"
+school_data$country[school_data$CNT=="AUS"]<-"Australia"
+school_data$country[school_data$CNT=="AUT"]<-"Austria"
+school_data$country[school_data$CNT=="BGR"]<-"Bulagaria"
+school_data$country[school_data$CNT=="BIH"]<-"Bostnia and Herzegovina"
+school_data$country[school_data$CNT=="BLR"]<-"Belarus"
+school_data$country[school_data$CNT=="BRA"]<-"Brazil"
+school_data$country[school_data$CNT=="BRN"]<-"Brunei"
+school_data$country[school_data$CNT=="CAN"]<-"Canada"
+school_data$country[school_data$CNT=="CHE"]<-"Switzerland"
+school_data$country[school_data$CNT=="CHL"]<-"Chile"
+school_data$country[school_data$CNT=="COL"]<-"Colombia"
+school_data$country[school_data$CNT=="CRI"]<-"Costa Rica"
+school_data$country[school_data$CNT=="CZE"]<-"Czech Republic"
+school_data$country[school_data$CNT=="DEU"]<-"Germany"
+school_data$country[school_data$CNT=="DNK"]<-"Denmark"
+school_data$country[school_data$CNT=="DOM"]<-"Dominican Republic"
+school_data$country[school_data$CNT=="ESP"]<-"Spain"
+school_data$country[school_data$CNT=="EST"]<-"Estonia"
+school_data$country[school_data$CNT=="FIN"]<-"Finland"
+school_data$country[school_data$CNT=="FRA"]<-"France"
+school_data$country[school_data$CNT=="GBR"]<-"United Kingdom"
+school_data$country[school_data$CNT=="GEO"]<-"Georgia"
+school_data$country[school_data$CNT=="GRC"]<-"Greece"
+school_data$country[school_data$CNT=="HKG"]<-"Hong Kong"
+school_data$country[school_data$CNT=="HRV"]<-"Croatia"
+school_data$country[school_data$CNT=="HUN"]<-"Hungary"
+school_data$country[school_data$CNT=="IDN"]<-"Indonesia"
+school_data$country[school_data$CNT=="ISL"]<-"Iceland"
+school_data$country[school_data$CNT=="ITA"]<-"Italy"
+school_data$country[school_data$CNT=="JOR"]<-"Jordan"
+school_data$country[school_data$CNT=="JPN"]<-"Japan"
+school_data$country[school_data$CNT=="KAZ"]<-"Kazakhstan"
+school_data$country[school_data$CNT=="KOR"]<-"Korea"
+school_data$country[school_data$CNT=="KSV"]<-"Kosovo"
+school_data$country[school_data$CNT=="LBN"]<-"Lebanon"
+school_data$country[school_data$CNT=="LTU"]<-"Lithuania"
+school_data$country[school_data$CNT=="LUX"]<-"Luxembourg"
+school_data$country[school_data$CNT=="LVA"]<-"Latvia"
+school_data$country[school_data$CNT=="MAR"]<-"Morocco"
+school_data$country[school_data$CNT=="MDA"]<-"Moldova"
+school_data$country[school_data$CNT=="MEX"]<-"Mexico"
+school_data$country[school_data$CNT=="MKD"]<-"Macedonia"
+school_data$country[school_data$CNT=="MLT"]<-"Malta"
+school_data$country[school_data$CNT=="MNE"]<-"Montenegro"
+school_data$country[school_data$CNT=="MYS"]<-"Malaysia"
+school_data$country[school_data$CNT=="NLD"]<-"Netherlands"
+school_data$country[school_data$CNT=="NZL"]<-"New Zealand"
+school_data$country[school_data$CNT=="PAN"]<-"Panama"
+school_data$country[school_data$CNT=="PER"]<-"Peru"
+school_data$country[school_data$CNT=="PHL"]<-"Philippines"
+school_data$country[school_data$CNT=="POL"]<-"Poland"
+school_data$country[school_data$CNT=="PRT"]<-"Portugal"
+school_data$country[school_data$CNT=="QAT"]<-"Qatar"
+school_data$country[school_data$CNT=="QAZ"]<-"Azerbaijan"
+school_data$country[school_data$CNT=="QCI"]<-"China"
+school_data$country[school_data$CNT=="ROU"]<-"Romania"
+school_data$country[school_data$CNT=="RUS"]<-"Russia"
+school_data$country[school_data$CNT=="SAU"]<-"Saudi Arabia"
+school_data$country[school_data$CNT=="SRB"]<-"Serbia"
+school_data$country[school_data$CNT=="SVK"]<-"Slovakia"
+school_data$country[school_data$CNT=="SVN"]<-"Slovenia"
+school_data$country[school_data$CNT=="TAP"]<-"Taiwan"
+school_data$country[school_data$CNT=="THA"]<-"Thailand"
+school_data$country[school_data$CNT=="TUR"]<-"Turkey"
+school_data$country[school_data$CNT=="UKR"]<-"Ukraine"
+school_data$country[school_data$CNT=="URY"]<-"Uruguay"
+school_data$country[school_data$CNT=="USA"]<-"United States"
+school_data$country[school_data$CNT=="VNM"]<-"Vietnam"
+```
+
+## Mutate Region column
+
+```{r}
+school_data$region_geo<-NA
+school_data$region_geo[school_data$CNT=="ALB"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="ARE"]<-"Middle East & North Africa"
+school_data$region_geo[school_data$CNT=="ARG"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="AUS"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="AUT"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="BGR"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="BIH"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="BLR"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="BRA"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="BRN"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="CAN"]<-"North America"
+school_data$region_geo[school_data$CNT=="CHE"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="CHL"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="COL"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="CRI"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="CZE"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="DEU"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="DNK"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="DOM"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="ESP"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="EST"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="FIN"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="FRA"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="GBR"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="GEO"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="GRC"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="HKG"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="HRV"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="HUN"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="IDN"]<-"South Asia"
+school_data$region_geo[school_data$CNT=="ISL"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="ITA"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="JOR"]<-"Middle East & North Africa"
+school_data$region_geo[school_data$CNT=="JPN"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="KAZ"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="KOR"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="KSV"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="LBN"]<-"Middle East & North Africa"
+school_data$region_geo[school_data$CNT=="LTU"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="LUX"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="LVA"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="MAR"]<-"Middle East & North Africa"
+school_data$region_geo[school_data$CNT=="MDA"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="MEX"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="MKD"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="MLT"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="MNE"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="MYS"]<-"South Asia"
+school_data$region_geo[school_data$CNT=="NLD"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="NZL"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="PAN"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="PER"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="PHL"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="POL"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="PRT"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="QAT"]<-"Middle East & North Africa"
+school_data$region_geo[school_data$CNT=="QAZ"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="QCI"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="ROU"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="RUS"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="SAU"]<-"Middle East & North Africa"
+school_data$region_geo[school_data$CNT=="SRB"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="SVK"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="SVN"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="TAP"]<-"East Asia & Pacific"
+school_data$region_geo[school_data$CNT=="THA"]<-"South Asia"
+school_data$region_geo[school_data$CNT=="TUR"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="UKR"]<-"Europe & Central Asia"
+school_data$region_geo[school_data$CNT=="URY"]<-"Latin America & the Caribbean"
+school_data$region_geo[school_data$CNT=="USA"]<-"North America"
+school_data$region_geo[school_data$CNT=="VNM"]<-"South Asia"
+```
+
+
+```{r}
+school_data %>% 
+count(CNT)
+```
+
+
+## Getting the aggregaed country result 
+
+```{r}
+school_data<-school_data %>% 
+  group_by(country) %>% 
+  mutate(avg_index = mean(ICT_index))
+```
+
+
+# Save data set 
+
+```{r}
+write.csv(school_data, "ICT_data_sch.csv")
+```
+
+
