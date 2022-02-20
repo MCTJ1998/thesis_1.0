@@ -1,0 +1,402 @@
+---
+title: "Thesis_carfully"
+author: "Cande Torres"
+date: "2/19/2022"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(broom)
+library(readxl)
+library(readr)
+library(janitor)
+library(lubridate)
+library(stringr)
+```
+
+
+The purpose of this Rmd is to carefully review the data cleaning process for the project
+
+# Upload data 
+
+```{r}
+covid_OX<-read_csv("https://raw.githubusercontent.com/OxCGRT/covid-policy-tracker/162b5cae62b14993c1f0eda850aae5ee6001fdcb/data/OxCGRT_withnotes_2020.csv")
+```
+## Filter covid_OX by NAT_ to get rid of duplications 
+
+```{r}
+covid_OX<-covid_OX %>% 
+  filter(Jurisdiction=="NAT_TOTAL")
+```
+
+```{r}
+covid_OX<-covid_OX %>% 
+  select(-H7_Flag,-H7_Notes, -H4_Notes, -H5_Notes, -H3_Notes, -H2_Notes, -H1_Flag, -H1_Notes, -H6_Notes, -H6_Flag, -H8_Notes, -H8_Flag, -E4_Notes, -E3_Notes, -E2_Notes, -E1_Flag, -E1_Notes, -C8_Notes, -C7_Notes, -C7_Flag, -C6_Notes, -C5_Flag, -C5_Notes, -C1_Flag,-C1_Notes, -C2_Flag, -C2_Notes, -C3_Notes, -C3_Flag, -C4_Flag, -C4_Notes, -M1_Wildcard, -M1_Notes, -C6_Flag, -RegionName,-RegionCode)
+```
+
+## Filter missing cases to get better averages
+```{r}
+covid_OX<-covid_OX %>% 
+  filter(!is.na(ConfirmedDeaths))
+```
+
+```{r}
+covid_OX<-covid_OX %>% 
+  filter(!is.na(ConfirmedCases))
+```
+
+## Find the Avg. for 2020
+These variables will act as controls. 
+```{r}
+covid_OX<- covid_OX %>% 
+  group_by(CountryName) %>% 
+  mutate(avg_cases = mean(ConfirmedCases))
+```
+
+```{r}
+covid_OX<- covid_OX %>% 
+  group_by(CountryName) %>% 
+  mutate(avg_deaths = mean(ConfirmedDeaths))
+```
+
+```{r}
+covid_OX<- covid_OX %>% 
+  group_by(CountryName) %>% 
+  mutate(avg_stringency = mean(StringencyIndex))
+```
+
+```{r}
+covid_OX<- covid_OX %>% 
+  group_by(CountryName) %>% 
+  mutate(avg_gresponse = mean(GovernmentResponseIndex))
+```
+
+```{r}
+covid_OX<- covid_OX %>% 
+  group_by(CountryName) %>% 
+  mutate(avg_containtment = mean(ContainmentHealthIndex))
+```
+
+```{r}
+covid_OX<- covid_OX %>% 
+  group_by(CountryName) %>% 
+  mutate(avg_econsupport = mean(EconomicSupportIndex))
+```
+
+## Clean names
+```{r}
+covid_OX<- clean_names(covid_OX)
+```
+
+__Reporing of covid cases and deaths through the Critical Fatality Ration (CFR)__
+
+The CFR is the ratio of reported death to reported cases: n of deaths/ n of cases = CFR per day. This is the "naive" CFR.
+
+```{r}
+covid_OX<- covid_OX %>% 
+  mutate(nCFR= confirmed_deaths/confirmed_cases)
+```
+
+The CFR does not account for delayed deaths reports nor for systematic underreporting. Technically, I do not care about the delay in reported deaths because I will be using an annual average so the underreporting of one day due to delay will be compensated at some point. However, I do care about systematic underreporting because this signals either a poor tracking mecanism from the country, or the need to enclose the information due to negligence and fear to international critique. To do this, researchers proposed to use a baseline level to apply to each country' CFR adjusted for delay reported deaths.
+
+"We assume a CFR of 1.38% (95% crI 1.23% - 1.53%), taken from a recent large study [1], as a baseline CFR. We use it to approximate the potential level of underreporting in each country. Specifically, we perform the calculation 1.38% / cCFR of each country to estimate an approximate fraction of cases reported."
+
+Because the above mentioned method is not compleatly proven, out of caution I will inicially just use the average covid deaths and cases to control in the regrssion but later I plan to use the adjusted CFR as a robustness check. I will include them in the data set to have them already. 
+
+```{r}
+covid_OX<-covid_OX %>% 
+mutate(adjCFR= 1.38/nCFR)
+```
+
+__I have to recode the missing values before getting the averages__ 
+Because in some cases, the number of deaths reported were 0, then the adjCFR is infinit "Inf" for that day. I will replace the value with 0. 
+Similarly, R is returing NaN (not a number) values for some of the first calculations of the nCFR and adjCFR, which messes up the averages. I will be droping them by recoding those values as 0.
+```{r}
+covid_OX$adjCFR[covid_OX$adjCFR=="Inf"]<-0
+covid_OX$nCFR[covid_OX$nCFR=="NaN"]<-0
+covid_OX$adjCFR[covid_OX$adjCFR=="NaN"]<-0
+```
+
+
+__Getting the annual averages__
+
+```{r}
+covid_OX<-covid_OX %>% 
+  group_by(country_name) %>% 
+  mutate(avg_nCFR= mean(nCFR))
+```
+
+```{r}
+covid_OX<-covid_OX %>% 
+  group_by(country_name) %>% 
+  mutate(avg_adjCFR= mean(adjCFR))
+```
+
+__Indexing Health provision index__
+
+The h-series variables offer either dichotomous or factor variables on different health-related measures applied during the pandemic that impact the public provision of health services. I will combine them in an index per day in each country and then average it to find the annual index. h4 and h5 correspond to the amount of investment on vaccines and emergency healthcare. I will not be including them on the index, because they are part of the government response index.  
+
+```{r}
+covid_OX<-covid_OX %>% 
+  filter(!is.na(across(c(h1_public_information_campaigns, h2_testing_policy, h3_contact_tracing,h6_facial_coverings, h7_vaccination_policy, h8_protection_of_elderly_people)))) %>% 
+  mutate(hp_index= h1_public_information_campaigns+h2_testing_policy+h3_contact_tracing+h6_facial_coverings+h7_vaccination_policy+h8_protection_of_elderly_people )
+```
+
+```{r}
+covid_OX<-covid_OX %>% 
+  filter(!is.na(h3_contact_tracing))
+```
+
+```{r}
+covid_OX<-covid_OX %>% 
+  group_by(country_name) %>% 
+  mutate(avg_hp_index= mean(hp_index))
+```
+
+```{r}
+#Just checking if it works. It does! Some countries have NAs because there's no info for them. 
+covid_OX %>% 
+  group_by(country_name) %>% 
+  filter(date=="20200701") %>% 
+  summarise(avg_hp_index)
+```
+
+
+__Filtering for just one day__ 
+Now that I have calculated the averages per year, I will be filtering out my data to keep just one observation per country. It does not matter which date I choose because all lines contains the annual average information I calculated before. I will use Chirstmas just because.
+
+```{r}
+covid_OX<-covid_OX %>% 
+  filter(date=="20201225")
+```
+
+Now I will drop all the other variables that came with the data set that are not annualized or used as controls. 
+
+```{r}
+covid_OX<-covid_OX %>% 
+  select(-jurisdiction,-date,-c1_school_closing,-c2_workplace_closing,-c3_cancel_public_events,-c4_restrictions_on_gatherings, -c5_close_public_transport, -c6_stay_at_home_requirements, -c7_restrictions_on_internal_movement, -c8_international_travel_controls, -e1_income_support,-e2_debt_contract_relief,-e3_fiscal_measures,-e4_international_support, -h1_public_information_campaigns, -h2_testing_policy, -h3_contact_tracing, -h4_emergency_investment_in_healthcare, -h5_investment_in_vaccines,-h6_facial_coverings, -h7_vaccination_policy, -h8_protection_of_elderly_people, -stringency_index, -stringency_index_for_display, -stringency_legacy_index, -stringency_legacy_index_for_display,-government_response_index, -government_response_index_for_display, -economic_support_index, -economic_support_index_for_display, -containment_health_index, -containment_health_index_for_display, -nCRF,-adjCFR,-hp_index)
+```
+DONE WRANGLING covid_OX
+-----------------------------------------------------------------------------------------------------------------
+## Upload Data on schooling during Covid
+
+```{r message=FALSE, warning=FALSE}
+covid_school <- read_excel("Multivariate_data_2.0.xlsx",col_types = c("text", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric"))
+```
+# Clean
+
+```{r}
+covid_school<- clean_names(covid_school)
+```
+
+```{r}
+covid_school<-covid_school %>% 
+  select(-x16,-x17,-x18,-x19,-x20,-x21,-x22,-x23,-x24,-x25,-x26,-x27)
+```
+
+```{r}
+covid_school<-covid_school %>% 
+  select(-tracking_or_monitoring_of_student_learning,-remote_learning_content_sensitive_to_needs_of_different_groups,-support_to_girls_and_vulnerable_groups_children_with_disabilities_children_on_the_move_etc,-usage_of_remote_learning_platforms,-parental_caregiver_support,-coverage_of_curriculum_subjects_and_content_planned,-access_to_remote_learning,-teacher_support_pedagogical_psychosocial_financial_etc,-quality_of_content_in_remote_learning_platforms)
+```
+
+
+# Code proportions 
+
+- I am coding the proportions for 328 days as opposed to 365 because the data was recorded from March 11th to February 2nd
+```{r}
+covid_school<-covid_school %>% 
+  mutate(prop_instruction= instruction_days/328) %>% 
+  mutate(prop_closed= days_fully_closed/328) %>% 
+  mutate(prop_break= days_academic_break/328) %>% 
+  mutate(prop_open= days_fully_open/328)
+```
+
+# Rank
+
+```{r}
+covid_school<-covid_school %>% 
+  mutate(open_rank= min_rank(prop_open)) %>% 
+  mutate(instruction_rank= min_rank(prop_instruction)) %>% 
+  mutate(closed_rank=min_rank(-prop_closed)) %>% 
+  mutate(break_rank=min_rank(-prop_break))
+```
+
+# Index
+
+This index is the main dependent variable. It is combining the rankings obtained by countries in the proportion of days they a)provided instruction, b) kept educational institutions fully opened, c) kept educational institutions fully closed (negative score) and d) remained on academic break (negative score).
+
+```{r}
+covid_school<-covid_school %>% 
+  mutate(schooling_time_index= open_rank+instruction_rank+closed_rank+break_rank)
+```
+
+# Join Data DV
+
+```{r}
+first_join<-left_join(covid_school,covid_OX, by=c("unicef_country"="country_name"))
+```
+
+```{r}
+#203 Observations, no duplications
+table(first_join$unicef_country)
+```
+
+DONE WRANGLING COVID_SCHOOL
+-----------------------------------------
+
+# Data for Education global rankings
+
+```{r message=FALSE, warning=FALSE}
+intrank <- read_excel("Index_IV_Data_collection.xlsx",col_types = c("text", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric"))
+```
+
+```{r}
+intrank<-clean_names(intrank)
+```
+
+## Ranking and indexing data for different international rankings and tests on education
+
+```{r}
+intrank<-intrank %>% 
+  mutate(across(c(pisa_reading_2018, pisa_math_2018, pisa_science_2018, quality_of_education_system_ceoworld, opportunity_in_education_ceoworld, talent_competitiveness_ranking_imd),
+    ~min_rank(.x)))
+```
+
+```{r}
+intrank<-intrank %>% 
+  mutate(pisa_index=
+           pisa_reading_2018+
+           pisa_science_2018+
+           pisa_math_2018)
+```
+
+```{r}
+intrank<-intrank %>% 
+  mutate(ceoworld_index=
+           quality_of_education_system_ceoworld+
+           opportunity_in_education_ceoworld)
+```
+
+-----------------------------------------------------------
+# Joining data (2nd Time)
+
+```{r}
+second_join<- left_join(first_join,intrank ,by= c("unicef_country"="country"))
+```
+
+```{r}
+#204 obs, I have 2 Indonesias, I will have to filter out one. 
+table(second_join$unicef_country)
+```
+```{r}
+#We have 2 indonesias and 3 NAs
+table(second_join$unicef_country)
+ second_join %>% 
+  count(unicef_country) %>% 
+  filter(n>1)
+```
+```{r}
+#filter out the duplicates
+second_join<-second_join %>% 
+  filter(!duplicated(unicef_country))
+```
+
+----------------------------------------------------------
+# Last set of controls comming from WDI 
+
+I only gathered the information about these controls for the countries that I have for the indevpendent variable.
+```{r}
+library(readxl)
+WDI <- read_excel("WDI-combined.xlsx", 
+    col_types = c("text", "numeric", "numeric", 
+        "numeric", "numeric", "numeric"))
+```
+```{r}
+WDI<-clean_names(WDI)
+```
+
+__Code an index about the health system infrastructure__
+It is worth noticing that the data available in the WDI database for each country comes from different years 2011-2019. All of it is pre-pandemic but because public health is not an elastic sector, I believe this is still a valuable control to add. 
+
+```{r}
+#get the quartiles
+summary(WDI$physicians_per_1_000_people)
+summary(WDI$hospital_beds_per_1_000_people)
+summary(WDI$nurses_and_midwives_per_1_000_people)
+```
+
+```{r}
+WDI<-WDI %>% 
+  mutate(physicians_lvl=cut(physicians_per_1_000_people, breaks=c(-Inf, 2.36,4.24, Inf), labels=FALSE))
+```
+```{r}
+WDI<-WDI %>% 
+  mutate(hospital_lvl=cut(hospital_beds_per_1_000_people, breaks=c(-Inf, 2.38,5.62, Inf), labels=FALSE))
+```
+```{r}
+WDI<-WDI %>% 
+  mutate(nurses_lvl=cut(nurses_and_midwives_per_1_000_people, breaks=c(-Inf, 3.8,10.2, Inf), labels=FALSE))
+```
+
+```{r}
+WDI<-WDI %>% 
+  mutate(h_sys_inf_index=physicians_lvl+hospital_lvl+nurses_lvl)
+```
+
+--------------------------------------------
+# Join Data (3rd time)
+
+Republic of Moldova = Moldova
+Republic of Korea = Korea, Rep. 
+Viet Nam = Vietnam
+Czechia = Czech Republic
+```{r}
+second_join<- second_join %>% 
+  mutate(unicef_country = str_replace(unicef_country, "Viet Nam", "Vietnam"))
+```
+```{r}
+second_join<- second_join %>% 
+  mutate(unicef_country = str_replace(unicef_country, "Republic of Moldova", "Moldova"))
+```
+```{r}
+second_join<- second_join %>% 
+  mutate(unicef_country = str_replace(unicef_country, "Republic of Korea", "Korea, Rep."))
+```
+```{r}
+second_join<- second_join %>% 
+  mutate(unicef_country = str_replace(unicef_country, "Czechia", "Czech Republic"))
+```
+```{r}
+second_join<- second_join %>% 
+  mutate(unicef_country = str_replace(unicef_country, "Brunei Darussalam", "Brunei"))
+```
+
+```{r}
+third_join<- full_join(WDI,second_join ,by= c("country"="unicef_country"))
+```
+
+```{r}
+table(third_join$country)
+```
+## Okey ready to export 
+
+```{r}
+write.csv(third_join,"wrangle_data_1.0.csv")
+```
+
