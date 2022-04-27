@@ -8,10 +8,10 @@ A repository to save data for thesis
 
 # Links to Data Sources 
 
-[OxCGRT](https://covidtracker.bsg.ox.ac.uk)
-[PISA School Questionnaire](https://www.oecd.org/pisa/data/2018database/)
-[World Development Indicators](https://databank.worldbank.org/source/world-development-indicators)
-[UNESCO School Closing Monitoring](https://en.unesco.org/covid19/educationresponse#schoolclosures) 
+- [OxCGRT](https://covidtracker.bsg.ox.ac.uk)
+- [PISA School Questionnaire](https://www.oecd.org/pisa/data/2018database/)
+- [World Development Indicators](https://databank.worldbank.org/source/world-development-indicators)
+- [UNESCO School Closing Monitoring](https://en.unesco.org/covid19/educationresponse#schoolclosures) 
 
 For the exact data I used from the WDI check the data set WDI-combined.xlsx in the repository 
 
