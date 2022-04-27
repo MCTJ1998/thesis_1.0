@@ -28,6 +28,7 @@ library(haven)
 school_q_d<- read_sav("SCH/CY07_MSU_SCH_QQQ.sav")
 ```
 
+__Filtering to include only public schools__
 ```{r}
 school_q_d <- school_q_d %>% 
   filter(SC013Q01TA==1)
@@ -445,7 +446,7 @@ school_data$region_geo[school_data$CNT=="VNM"]<-"South Asia"
 ```
 
 ```{r}
-table(school_data3$CNT)
+table(school_data$CNT)
 ```
 
 ## Getting the aggregaed country result 
@@ -459,7 +460,7 @@ school_data<-school_data %>%
 # Save data set 
 
 ```{r}
-write.csv(school_data, "ICT_data_sch4.csv")
+write.csv(school_data, "ICT_data_sch_4.csv")
 ```
 
 
