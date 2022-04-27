@@ -1,0 +1,1033 @@
+---
+title: "Thesis_analysis"
+author: "Cande Torres"
+date: "2/20/2022"
+output: 
+    prettydoc::html_pretty:
+    theme: cayman
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(broom)
+library(readxl)
+library(janitor)
+library(lubridate)
+library(stringr)
+library(haven)
+library(ggthemes)
+library(prettydoc) # Options code_folding, code_download and toc_float are not applicable.
+library(reshape2)
+library(car)
+```
+
+```{r}
+ICT_sch <- read_csv("ICT_data_sch_4.csv", 
+    col_types = cols(...1 = col_skip(), ICT_index = col_number(), 
+        avg_ICT_index = col_number()))
+```
+
+```{r}
+schooling_controls <- read_csv("wrangle_data_1.0.csv", 
+    col_types = cols(...1 = col_skip()))
+```
+
+# Rename values to match them 
+
+```{r}
+schooling_controls<-schooling_controls %>% 
+mutate(country = str_replace(country, "North Macedonia", "Macedonia"))
+```
+
+```{r}
+schooling_controls<-schooling_controls %>% 
+  mutate(country = str_replace(country, "Russian Federation", "Russia"))
+```
+
+```{r}
+schooling_controls<-schooling_controls %>% 
+ mutate(country = str_replace(country, "Republic of Korea", "Korea"))
+```
+
+```{r}
+schooling_controls<-schooling_controls %>% 
+  mutate(country = str_replace(country, "Hong Kong SAR, China", "Hong Kong"))
+```
+
+
+```{r}
+schooling_controls<-schooling_controls %>% 
+  mutate(country = str_replace(country, "United States", "United States"))
+```
+```{r}
+ICT_sch<-ICT_sch%>% 
+  mutate(country = str_replace(country, "United States", "United States"))
+```
+
+
+# Join Data (fourth time)
+
+```{r}
+fourth_join<-left_join(ICT_sch, schooling_controls, by="country") #this data set is super large because it contains all the schools per country but we are only using the average of all schools 
+```
+
+__COVID-19__
+
+```{r}
+df1<-fourth_join %>% 
+  group_by(avg_deaths, avg_cases, country) %>% 
+  summarise() %>% 
+  select(unique.x=country)
+```
+
+__Rename__
+
+```{r}
+df1 <-df1 %>% 
+  transmute(country=unique.x)
+```
+
+```{r}
+names(df1)[names(df1) == "avg_cases"] <- "Average cases"
+names(df1)[names(df1) == "avg_deaths"] <- "Average deaths"
+```
+
+```{r}
+df2 <- df1 %>% 
+  arrange(desc(`Average cases`)) %>% 
+  head(10) %>% 
+  melt(id.vars='country')
+df2<-df2 %>% mutate(value_decimal = value/100000)
+df2<-df2 %>% mutate(label= round(value_decimal, digits= 2))
+#df2<-df2 %>% mutate(label= round(value_decimal, digits = -3))
+
+```
+
+```{r}
+df2 %>% 
+  ggplot(aes(x=fct_reorder(country, value_decimal, max), y=value_decimal, fill=variable))+
+  geom_bar(stat='identity', position='dodge')+
+  theme_minimal()+
+  labs( x="Countries",
+        title="Top-10 Countries with higher confirmed COVID-19 cases",
+        caption="Graph by Cande Torres")+
+  scale_y_continuous(name="COVID-19 Impact (per hundred thousand)", breaks=seq(0,55,5))+
+  geom_text(aes(label = label),
+            position= position_dodge(width=0.9), 
+            vjust=-0.5,
+            hjust=0.6
+            )+
+  theme_economist()+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))+
+  scale_fill_brewer(palette = "Set1")+
+  guides(x=guide_axis(angle = 25))+
+  expand_limits(y = 55)
+```
+
+# Create full IV
+
+```{r}
+names(fourth_join)
+```
+```{r}
+fourth_join<-fourth_join %>% 
+  filter(!is.na(ceoworld_index)) %>% mutate(edu_r=instruction_rank+ceoworld_index)
+```
+
+```{r}
+fourth_join<-fourth_join%>% 
+  filter(!is.na(ceoworld_index)) %>% mutate(edu_s=schooling_time_index+ceoworld_index)
+```
+
+```{r}
+fourth_join$avg_nCFR<- as.numeric(fourth_join$avg_nCFR)
+fourth_join$avg_adjCFR<- as.numeric(fourth_join$avg_adjCFR)
+```
+
+# Running Summary statistics 
+
+__ICT index__  
+Main Independent Variable.
+
+```{r}
+summary(fourth_join$avg_ICT_index)
+sd(fourth_join$avg_ICT_index)
+```
+__Education: Schooling + Quality__  
+Dependent Variable. 
+```{r}
+summary(fourth_join$edu_s)
+sd(fourth_join$edu_s)
+```
+
+```{r}
+library(vtable)
+```
+```{r}
+df4<-fourth_join %>% 
+  group_by(CNT, avg_ICT_index, edu_s, schooling_time_index, gdp_per_capita,literacy_rate,h_sys_inf_index, avg_cases, avg_deaths, avg_stringency, avg_gresponse, avg_containtment,avg_econsupport,avg_nCFR,avg_adjCFR,avg_hp_index, country) %>% 
+  summarise() %>% 
+  select(unique.x=country)
+```
+```{r}
+df4 <-df4 %>% 
+  transmute(country=unique.x)
+```
+```{r}
+df4$avg_nCFR<- as.numeric(df4$avg_nCFR)
+df4$avg_adjCFR<- as.numeric(df4$avg_adjCFR)
+```
+
+
+
+__Summary Stats Table__
+```{r}
+st(df4)
+```
+
+
+sumstat <- states %>%
+
+    # Select and rename five variables 
+    select(
+        `Black (%)` = blkpct,
+        `Attend church (%)` = attend_pct,
+        `Supported Bush in 2000 (%)` = bush00,
+        `Supported Obama in 2008 (%)` = obama08,
+        `Women in State Legislature (%)` = womleg
+        ) %>%
+
+    # Find the mean, st. dev., min, and max for each variable 
+    summarise_each(funs(mean, sd, min, max)) %>%
+
+    # Move summary stats to columns
+    gather(key, value, everything()) %>% 
+    separate(key, into = c("variable", "stat"), sep = "_") %>%
+    spread(stat, value) %>%
+
+    # Set order of summary statistics 
+    select(variable, mean, sd, min, max) %>%
+
+    # Round all numeric variables to one decimal point
+    mutate_each(funs(round(., 1)), -variable)
+
+sumstat
+
+
+```{r}
+sumstats<- df4 %>% 
+  #select and rename 
+  group_by(CNT) %>% 
+  select(
+    `ICT index`= avg_ICT_index,
+    `Educational Resilience`= edu_s,
+    `Log GDP per capita` = gdp_per_capita,
+    `Literacy Rate`= literacy_rate,
+    `Strengh of health system index` = h_sys_inf_index,
+    `COVID-19 cases`= avg_cases,
+    `COVID-19 deaths`= avg_deaths,
+    `Stringency index`=avg_stringency,
+    `Government Response`= avg_gresponse,
+    `Containtment of the virus`= avg_containtment,
+    `Economic Support`= avg_econsupport,
+    `Critical Fatality Ratio (squared)`= sq_nCFR
+  ) %>% 
+# Find the mean, st. dev., min, and max for each variable 
+    summarise_each(funs(n, mean, sd, min, max)) %>%
+ # Move summary stats to columns
+    gather(key, value, everything()) %>% 
+    separate(key, into = c("variable", "stat"), sep = "_") %>%
+    spread(stat, value) %>%
+ # Set order of summary statistics 
+    select(variable, n, mean, sd, min, max) %>%
+ # Round all numeric variables to one decimal point
+    mutate_each(funs(round(., 1)), -variable)
+```
+
+```{r}
+labs <- data.frame(
+    `ICT index`= avg_ICT_index,
+    `Educational Resilience`= edu_s,
+    `Log GDP per capita` = gdp_per_capita,
+    `Literacy Rate`= literacy_rate,
+    `Strengh of health system index` = h_sys_inf_index,
+    `COVID-19 cases`= avg_cases,
+    `COVID-19 deaths`= avg_deaths,
+    `Stringency index`=avg_stringency,
+    `Government Response`= avg_gresponse,
+    `Containtment of the virus`= avg_containtment,
+    `Economic Support`= avg_econsupport,
+    `Critical Fatality Ratio (squared)`= sq_nCFR
+    )
+st(sumstats)
+```
+
+```{r}
+write.table(tab, file = "tab.txt", sep = ",", quote = FALSE, row.names = F)
+```
+
+
+```{r}
+df6<- df4 %>%  
+  
+  #select and rename 
+  select(
+    `ICT index`= avg_ICT_index,
+    `Educational Resilience`= edu_s,
+    `Log GDP per capita` = log_gdp,
+    `Literacy Rate`= literacy_rate,
+    `Strengh of health system index` = h_sys_inf_index,
+    `COVID-19 cases`= avg_cases,
+    `COVID-19 deaths`= avg_deaths,
+    `Stringency index`=avg_stringency,
+    `Government Response`= avg_gresponse,
+    `Containtment of the virus`= avg_containtment,
+    `Economic Support`= avg_econsupport,
+    `Health Policy Index (2020)`= avg_hp_index,
+    `Critical Fatality Ratio (squared)`= sq_nCFR
+  ) 
+df6<-df6 %>% 
+  group_by(CNT) %>% 
+  select(-schooling_time_index, -avg_nCFR, -avg_adjCFR, -gdp_per_capita)
+```
+
+```{r}
+st(df6)
+```
+
+
+
+```{r}
+write.txt(tab, file = "tab.csv", sep = ",", row.names = F)
+```
+
+```{r}
+library(kableExtra)
+library(psych)
+tab<-describe(df6 [, c("ICT index",
+    "Educational Resilience",
+    "Log GDP per capita",
+    "Literacy Rate",
+    "Strengh of health system index",
+    "COVID-19 cases",
+    "COVID-19 deaths",
+    "Stringency index",
+    "Government Response",
+    "Containtment of the virus",
+    "Economic Support",
+    "Health Policy Index (2020)",
+    "Critical Fatality Ratio (squared)" ) ], fast=TRUE)
+print(tab, digits = 3, signif = 3)
+
+kbl(tab) %>% 
+  kable_classic(full_width = FALSE, html_font = "Cambria", font_size=16)
+```
+
+```{r}
+library (pastecs)
+summary_df <- stat.desc(df6) 
+```
+
+#Trying to export to LATEX
+
+```{r}
+library(stargazer)
+
+stargazer(df6)
+```
+
+```{r}
+library(xtable)
+#library(longtable)
+print(xtable(tab, type = "latex", tabular.environment="longtable"), file = "test.tex", include.rownames=TRUE)
+```
+
+```{r}
+t<-df6 %>% 
+group_by(CNT) %>% 
+summary(~.)
+```
+
+
+```{r}
+df6 %>% 
+group_by(CNT) %>% 
+summary()
+```
+
+```{r}
+stargazer(tab)
+```
+
+
+## Histograms 
+
+```{r}
+df4 %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= avg_ICT_index))+
+  geom_histogram(#binwidth = 0.5, 
+                 fill="navy blue")+
+  labs(title="Distribution of ICT index levels achieved by countries",
+       x= "ICT availability",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+
+```{r}
+fourth_join %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= ICT_index))+
+  geom_histogram(binwidth = 0.5, fill="navy blue")+
+  labs(title="Distribution of ICT index levels achieved by schools",
+       x= "ICT availability",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+
+
+```{r fig.width= 8}
+df4 %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= edu_s))+
+  geom_histogram(binwidth = 20, fill="navy blue")+
+  labs(title="Distribution of Education resilince levels achieved by countries in 2020",
+       x= "Education Resiliance",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+
+- Normal distribution for both (kinda).  
+
+```{r fig.width=6}
+fourth_join %>% 
+  select(gdp_per_capita, literacy_rate, h_sys_inf_index) %>% 
+  pivot_longer(cols = everything(),
+               names_to = "variable",
+               values_to = "value") %>% 
+  ggplot(aes(x=value))+
+  geom_histogram(bins = 30, fill="navy blue")+
+  facet_wrap(vars(variable),
+             scales = "free")+
+  theme_economist()+
+  guides(x=guide_axis(n.dodge = 2))+
+  labs(x=" ")
+```
+
+- GDP per capita is left skewed. Literacy rate is right skewed.  I will log them.
+
+__Transforming GDP__
+
+```{r}
+fourth_join$log_gdp <- log(fourth_join$gdp_per_capita + 0.00000000000000001)
+df4$log_gdp <- log(df4$gdp_per_capita + 0.00000000000000001)
+```
+
+```{r fig.width=6}
+fourth_join %>% 
+  select(log_gdp, literacy_rate, h_sys_inf_index) %>% 
+  pivot_longer(cols = everything(),
+               names_to = "variable",
+               values_to = "value") %>% 
+  ggplot(aes(x=value))+
+  geom_histogram(bins = 30, fill="navy blue")+
+  facet_wrap(vars(variable),
+             scales = "free")+
+  theme_economist()+
+  guides(x=guide_axis(n.dodge = 2))+
+  labs(x=" ")
+```
+
+```{r}
+fourth_join %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= literacy_rate))+
+  geom_histogram(#binwidth = 0.5, 
+    fill="navy blue")+
+  labs(title="Literacy Rate Distribution",
+       x= " ",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+
+- Although the distribution is skewed, log transforming it would not be the solution because it would give me the percentages (Literacy rate is already a percentage). 
+
+- Checking the distribution of other controls. 
+
+```{r}
+df4 %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= avg_nCFR))+
+  geom_histogram( 
+    fill="navy blue")+
+  labs(title="CFR Distribution",
+       x= " ",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+__Adjusted CFR__
+
+```{r}
+df4 %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= avg_adjCFR))+
+  geom_histogram( 
+    fill="navy blue")+
+  labs(title="CFR Distribution",
+       x= " ",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+Both are supper skewed and need logs
+
+```{r}
+#Ask Amy about this, in class she said something about the log transforms with this 0.0000..1, something along the lines of "Don't do it". 
+fourth_join$log_nCFR<-log(fourth_join$avg_nCFR+ 0.00000000000000001)
+fourth_join$log_aCFR<-log(fourth_join$avg_adjCFR+ 0.00000000000000001)
+df4$log_nCFR<-log(df4$avg_nCFR + 0.00000000000000001)
+df4$log_aCFR<-log(df4$avg_adjCFR + 0.00000000000000001)
+```
+```{r}
+#Logging wont work because duh they are already rates 
+
+fourth_join$sq_nCFR<-(fourth_join$avg_nCFR)^2
+fourth_join$sq_aCFR<-(fourth_join$avg_adjCFR)^2
+df4$sq_nCFR<-log(df4$avg_nCFR)^2
+df4$sq_aCFR<-log(df4$avg_adjCFR)^2
+```
+
+__RE-DO GRAPHS__
+
+```{r}
+df4 %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= log_nCFR))+
+  geom_histogram( 
+    fill="navy blue")+
+  labs(title="CFR Distribution",
+       x= " ",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+
+
+```{r}
+df4 %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= log_aCFR))+
+  geom_histogram( 
+    fill="navy blue")+
+  labs(title="CFR Distribution",
+       x= " ",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+FIXED!
+
+```{r}
+df4 %>% 
+  group_by(country) %>% 
+  ggplot(aes(x= avg_hp_index))+
+  geom_histogram( 
+    fill="navy blue")+
+  labs(title="HP index",
+       x= " ",
+       caption = "Graph by Cande Torres")+
+  theme_economist()+
+  theme(axis.title = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+```
+
+```{r}
+fourth_join %>% 
+  select(avg_stringency, avg_gresponse, avg_containtment, avg_econsupport, log_gdp, literacy_rate, h_sys_inf_index) %>% 
+  pivot_longer(cols = everything(),
+               names_to = "variable",
+               values_to = "value") %>% 
+  ggplot(aes(x=value))+
+  geom_histogram(bins = 30, fill="navy blue")+
+  facet_wrap(vars(variable),
+             scales = "free")+
+  theme_economist()+
+  labs(x=" ")+
+  theme(legend.title = element_text(size=rel (0.7), margin = margin(t = 20)),
+        axis.text.x = element_text(size= rel(0.7)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)))
+
+```
+
+# Scatterplots for univariate relationships
+
+```{r}
+fourth_join %>% 
+ggplot(aes(x=avg_ICT_index,y=edu_s))+
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_economist()+
+  labs(x= "ICT availability at schools",
+       y= "Education Resiliance", 
+       title= "Univariate Relationship Scatter Plot", 
+       caption = "Graph by Cande Torres")+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)),
+        axis.text.x = element_text(size = rel(0.7),
+        
+        ))
+                            
+```
+
+## Checking for Multicollinearity
+
+```{r}
+fourth_join %>% 
+ggplot(aes(x=avg_ICT_index,y=gdp_per_capita))+
+  geom_point()+
+  geom_smooth(method = lm)+
+  theme_economist()+
+  labs(x= "ICT availability at schools",
+       y= "GDP per capita", 
+       title= "Univariate Relationship Scatter Plot", 
+       caption = "Graph by Cande Torres")+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)),
+        axis.text.x = element_text(size = rel(0.7),
+        
+        ))
+```
+
+- There seems to be a correlation but not necesarilly a strong one.   
+
+```{r}
+fourth_join %>% 
+ggplot(aes(x=avg_ICT_index,y=literacy_rate))+
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_economist()+
+  labs(x= "ICT availability at schools",
+       y= "Literacy Rate", 
+       title= "Univariate Relationship Scatter Plot", 
+       caption = "Graph by Cande Torres")+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)),
+        axis.text.x = element_text(size = rel(0.7),
+        
+        ))
+```
+
+- Not necessarily correlated. 
+
+# Thesis Analysis 
+
+__MODEL 1__
+
+Simple OLS.  
+
+```{r}
+model1<-lm(edu_s~ avg_ICT_index
+   ,df4)
+  summary(model1)
+```
+__MODEL 2__
+
+Introduces impact of COVID-19.   
+
+```{r}
+model2<-lm(edu_s~ avg_ICT_index
+           +avg_cases
+           +avg_deaths
+   ,df4) 
+summary(model2)
+```
+__MODEL 3__
+
+Introduces WDI controls.   
+
+```{r}
+model3<-lm(edu_s~ avg_ICT_index
+           +avg_cases
+           +avg_deaths
+           +log_gdp
+           +literacy_rate
+           +h_sys_inf_index
+   ,df4)
+  summary(model3)
+```
+__MODEL 4__
+Controls for different aspects of the Government Response to the Pandemic.   
+
+```{r}
+model4<-lm(edu_s~ avg_ICT_index
+   +avg_cases
+   +avg_deaths
+   +log_gdp
+   +literacy_rate
+   +h_sys_inf_index
+   +avg_stringency
+   +avg_hp_index
+   +avg_gresponse
+   +avg_containtment
+   +avg_econsupport
+   ,df4) 
+summary(model4)
+```
+
+__Check multicollinearity__
+
+```{r}
+vif(model4, df4)
+```
+
+```{r}
+#create vector of VIF values
+vif_values <- vif(model4)
+
+#create horizontal bar chart to display each VIF value
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")+
+ scale_x_continuous(trans = scales::log_trans(),
+                     breaks = scales::log_breaks())
+
+#add vertical line at 5
+abline(v = 5, lwd = 3, lty = 2)
+```
+Average economic support, average containtment and average government response are all showing massive values of multicollinearity. I will be dropping 2 of them
+
+
+__MODEL 5__
+Because GDP per capita seems to be correlated with ICT access at schools, we might want to drop the offender variable. 
+```{r}
+model5<-lm(edu_s~ avg_ICT_index
+   #+avg_cases
+   #+avg_deaths
+   +log_gdp
+   +literacy_rate
+   +h_sys_inf_index
+   +avg_stringency
+   +avg_hp_index
+   #+avg_gresponse
+   #+avg_containtment
+   #+avg_econsupport
+   +sq_nCFR
+   ,df4) 
+summary(model5)
+```
+
+
+```{r}
+vif(model5,df4)
+```
+
+- It is positive!!!! If you do not control for GDP per capita is positive!!!.  
+
+__MODEL 6__
+
+Robustness check introduces CFR instead of cases and deaths 
+
+```{r}
+model6<-lm(edu_s~ avg_ICT_index
+   #+avg_cases
+   #+avg_deaths
+   +log_gdp
+   +literacy_rate
+   +h_sys_inf_index
+   #+avg_stringency
+   +avg_hp_index
+   #+avg_gresponse
+   +avg_containtment
+   #+avg_econsupport
+   +sq_nCFR
+   ,df4) 
+  summary(model6)
+```
+```{r}
+vif(model6,df4)
+```
+
+__MODEL 7__
+
+```{r}
+model7<-lm(edu_s~ avg_ICT_index
+   #+avg_cases
+   #+avg_deaths
+   #+log_gdp
+   +literacy_rate
+   +h_sys_inf_index
+   +avg_stringency
+   +avg_hp_index
+   #+avg_gresponse
+   #+avg_containtment
+   #+avg_econsupport
+    +sq_nCFR
+   ,df4) 
+  summary(model7)
+```
+```{r}
+model8<-lm(edu_s~ avg_ICT_index
+   +sq_nCFR
+   +log_gdp
+   +literacy_rate+h_sys_inf_index
+   +avg_hp_index
+   +avg_stringency
+   #+avg_gresponse
+   #+avg_containtment
+   #+avg_econsupport
+   ,df4) 
+  summary(model8)
+```
+
+# Regional analysis 
+
+```{r}
+wide_4<- pivot_wider(fourth_join,
+                      names_from = region_geo,
+                      values_from = avg_ICT_index)
+```
+
+
+```{r}
+wide_4 %>% 
+  ggplot(aes(x=`Latin America & the Caribbean`,y= edu_s))+
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_economist()+
+  labs(x= "ICT availability at schools",
+       y= "Education Resiliance", 
+       title= "Scatter Plot for LATIN AMERICA", 
+       caption = "Graph by Cande Torres")+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)),
+        axis.text.x = element_text(size = rel(0.7),
+        
+        ))
+  
+```
+
+```{r fig.width=10}
+fourth_join %>% 
+  group_by(region_geo, country) %>% 
+  mutate(ICT_region= mean(avg_ICT_index)) %>% 
+  ggplot(aes(x=ICT_region, y=region_geo)) + 
+  geom_col(fill="navy blue")+
+  coord_flip()+
+  theme_economist()+
+  labs(x= "ICT availability at schools",
+       y= "Regions", 
+       title= "Regional Comparison on ICT access at schools", 
+       caption = "Graph by Cande Torres")+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)),
+        axis.text.x = element_text(size = rel(0.7))
+  )
+```
+
+- I believe the graphs is counting my observations as opposed to the actual ICT_level. 
+
+```{r}
+wide_4 %>% 
+  select(`Latin America & the Caribbean`, country) %>%
+  filter(country %in% c("Argentina", "Brazil", "Chile")) %>% 
+  view()
+```
+
+- It seems that I was right.  
+
+```{r}
+df3<-fourth_join %>% 
+  group_by(region_geo, avg_ICT_index, country) %>% 
+  summarise() %>% 
+  select(unique.x=country)
+```
+
+__Rename__
+
+```{r}
+df3 <-df3 %>% 
+  transmute(country=unique.x)
+```
+
+```{r}
+df3 <- df3 %>% 
+  arrange(desc(avg_ICT_index)) %>% 
+  mutate(label= round(avg_ICT_index, digits = 1))
+```
+
+```{r}
+df3 %>% 
+  filter(region_geo== "Latin America & the Caribbean") %>% 
+  filter(country != "Dominican Republic") %>% 
+  ggplot(aes(x=fct_reorder(country, avg_ICT_index, max), y=avg_ICT_index))+
+  geom_col(fill= "navy blue")+
+  labs( x="Countries",
+        y= "ICT availability at schools",
+        title="ICT index in Latin American Countries",
+        caption="Graph by Cande Torres")+
+  geom_text(aes(label = label), vjust = -0.5, position = "dodge" )+
+  theme_economist()+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)),
+        axis.text.x = element_text(size=rel(0.7)),
+        title = element_text(size=rel(0.8)))+
+  expand_limits(y = 20)
+```
+
+```{r}
+df3 %>% 
+  filter(region_geo== "Latin America & the Caribbean") %>% 
+#  filter(country != "Dominican Republic") %>% 
+  ggplot(aes(x=fct_reorder(country, avg_ICT_index, max), y=avg_ICT_index))+
+  geom_col(fill= "navy blue")+
+  labs( x="Countries",
+        y= "ICT availability at schools",
+        title="ICT index in Latin American Countries",
+        caption="Graph by Cande Torres")+
+  geom_text(aes(label = label), vjust = -0.5, position = "dodge" )+
+  theme_economist()+
+  theme(axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.text.y = element_text(size=rel(0.7)),
+        axis.text.x = element_text(size=rel(0.7)),
+        title = element_text(size=rel(0.8)))+
+  expand_limits(y = 20)
+```
+
+```{r}
+df5<-fourth_join %>% 
+  group_by(region_geo, avg_ICT_index, edu_s, country) %>% 
+  summarise() %>% 
+  select(unique.x=country)
+```
+
+__Rename__
+
+```{r}
+df5 <-df5 %>% 
+  transmute(country=unique.x)
+```
+
+```{r}
+df5 <- df5 %>% 
+  arrange(desc(edu_s)) %>% 
+  mutate(label= round(avg_ICT_index, digits = 4))
+```
+
+```{r}
+df5 %>% 
+  filter(region_geo== "Latin America & the Caribbean") 
+  
+```
+
+#Regional Average ICT index
+```{r}
+df5 %>% 
+  group_by(region_geo) %>% 
+  summarise(avg_ict= mean(avg_ICT_index))
+```
+# Order countries by ICT index
+
+```{r}
+df4 %>% 
+  group_by(country) %>% 
+  summarise(avg_ICT_index) %>% 
+  arrange(desc(avg_ICT_index))
+```
+
+------------------------------
+
+
+# Creating a table to display all the models
+
+```{r}
+library(texreg)
+screenreg(list(model1, model2, model3, model4, model5, model6, model7), 
+          custom.coef.names = c("Intercept",
+                                "ICT in schools Index", 
+                                "COVID-19 Cases",
+                                "COVID-19 Deaths",
+                                "Log GDP per capita", 
+                                "Literacy Rate",
+                                "Strengh of Health System Index",
+                                "Government Stringency Index",
+                                "Health Policy Index (2020)",
+                                "Government Response to the Pandemic Index",
+                                "Containtment of the virus Index",
+                                "Government Economic Support",
+                                "Critical Fatality Ratio (squared)"),
+          stars = c(0.01, 0.05, 0.1),
+          custom.model.names = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)"),
+          digits = 3 #change decimal places
+)
+```
+
+
+
+
+__Making it nice for LateX__
+
+
+```{r}
+library(texreg)
+texreg(list(model1, model2, model3, model4, model5, model6, model7), 
+          custom.coef.names = c("Intercept",
+                                "ICT in schools Index", 
+                                "COVID-19 Cases",
+                                "COVID-19 Deaths",
+                                "Log GDP per capita", 
+                                "Literacy Rate",
+                                "Strengh of Health System Index",
+                                "Government Stringency Index",
+                                "Health Policy Index (2020)",
+                                "Government Response to the Pandemic Index",
+                                "Containtment of the virus Index",
+                                "Government Economic Support",
+                                "Critical Fatality Ratio (squared)"),
+          stars = c(0.01, 0.05, 0.1),
+          custom.model.names = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)"),
+          digits = 3 #change decimal places
+)
+```
+
+
+
+
+
