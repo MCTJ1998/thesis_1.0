@@ -5,6 +5,10 @@ date: "4/27/2022"
 output: html_document
 ---
 
+# Link to the GitHub  Repository 
+[Cande Torres Jimenez](https://github.com/MCTJ1998/thesis_1.0)
+
+
 # Links to Data Sources 
 
 [OxCGRT](https://covidtracker.bsg.ox.ac.uk)
